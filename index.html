@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ruang Cerita – Konseling BK</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#f4f8f6;--card:#fff;--tx:#1f2d2a;--mu:#5d706b;--pr:#3f8f7b;--pr2:#e1f1ec;--wa:#fff1e6;--wt:#b4581c;--bd:#d9e6e1;--me:#3f8f7b;--ot:#eaf0ee}
+@media (prefers-color-scheme:dark){:root{--bg:#14201d;--card:#1c2b27;--tx:#e6f0ed;--mu:#9bb1ab;--pr:#5fc0a8;--pr2:#233933;--wa:#3a2a1d;--wt:#f0a56b;--bd:#2c403a;--me:#2f7f6b;--ot:#26382f;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:760px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:1.7rem;line-height:1.25;margin:.2em 0}h2{font-size:1.15rem;margin:0 0 6px}p{margin:.3em 0}.mu{color:var(--mu)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.logo{font-weight:700;color:var(--pr)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin:12px 0}
+.grid{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:620px){.grid.g2{grid-template-columns:repeat(2,1fr)}.grid.g3{grid-template-columns:repeat(3,1fr)}}
+.opt{cursor:pointer;text-align:left;font:inherit;color:inherit;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px}
+.opt:hover{border-color:var(--pr)}.opt.main{background:var(--pr2);border-color:var(--pr)}.opt .e{font-size:1.6rem}
+.btn{font:inherit;font-weight:600;border:0;border-radius:12px;padding:10px 16px;background:var(--pr);color:#fff;cursor:pointer}
+.btn.s{background:var(--pr2);color:var(--pr)}.btn:disabled{opacity:.5}
+input,select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);margin:4px 0 12px}
+label{font-weight:600;font-size:.92rem}
+.warn{background:var(--wa);color:var(--wt);border-radius:12px;padding:10px 12px;font-size:.92rem;margin-bottom:12px}
+.token{font:700 1.3rem ui-monospace,Menlo,monospace;letter-spacing:.08em;text-align:center;background:var(--pr2);color:var(--pr);border-radius:12px;padding:10px;margin:8px 0}
+.chat{display:flex;flex-direction:column;height:min(60vh,520px);border:1px solid var(--bd);border-radius:16px;background:var(--card);overflow:hidden}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:82%;padding:9px 13px;border-radius:16px;background:var(--ot);align-self:flex-start;white-space:pre-wrap;word-break:break-word}
+.m.me{background:var(--me);color:#fff;align-self:flex-end}.m small{display:block;opacity:.65;font-size:.72rem;margin-top:2px}
+.send{display:flex;gap:8px;padding:10px;border-top:1px solid var(--bd)}.send input{margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row2{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)}.item:last-child{border:0}
+.sos{position:fixed;right:14px;bottom:14px;background:#c0392b;color:#fff;border:0;border-radius:999px;padding:11px 16px;font:600 .9rem system-ui;box-shadow:0 4px 14px #0004;cursor:pointer;z-index:5}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top"><span class="logo">🌿 Ruang Cerita</span><span class="row" id="bar"><span class="mu" id="hi"></span><button class="btn s" id="out">Keluar</button></span></div>
+  <div class="warn hide" id="cfgWarn">Isi SUPABASE_URL dan SUPABASE_ANON_KEY di bagian CFG pada kode dulu.</div>
+
+  <section id="login">
+    <h1>Selamat datang 👋</h1>
+    <p class="mu">Masuk dengan NIS dan password dari sekolah. Guru BK masuk dengan email.</p>
+    <div class="card"><label>NIS atau email</label><input id="lu" autocomplete="username"><label>Password</label><input id="lp" type="password" autocomplete="current-password">
+      <div class="warn hide" id="lmsg"></div><button class="btn" id="loginBtn">Masuk</button></div>
+  </section>
+
+  <section id="pw" class="hide">
+    <h1>Buat password baru</h1><p class="mu">Ini login pertamamu. Ganti password awal dengan yang hanya kamu yang tahu.</p>
+    <div class="card"><label>Password baru (min. 8 karakter)</label><input id="np" type="password" autocomplete="new-password">
+      <div class="warn hide" id="pmsg"></div><button class="btn" id="pwBtn">Simpan</button></div>
+  </section>
+
+  <section id="home" class="hide">
+    <h1>Mau cerita apa hari ini?</h1>
+    <p class="mu">Ruang aman untuk ngobrol dengan guru BK. Guru hanya melihat nama panggilanmu, bukan identitas aslimu.</p>
+    <div class="grid g3" style="margin-top:14px">
+      <button class="opt main" data-go="aduan"><div class="e">💬</div><h2>Mau cerita</h2><p class="mu">Ceritakan dulu, lalu pilih chat atau janji.</p></button>
+      <button class="opt" data-go="my"><div class="e">🔑</div><h2>Lanjut chat</h2><p class="mu">Buka lagi chat dan janjimu.</p></button>
+      <button class="opt" data-go="info"><div class="e">🛡️</div><h2>Soal privasi</h2><p class="mu">Siapa saja yang bisa melihat ceritamu.</p></button>
+    </div>
+  </section>
+
+  <section id="aduan" class="hide">
+    <button class="btn s" data-go="home">← Kembali</button>
+    <div class="card" style="margin-top:12px"><h2>Ceritakan dulu ya</h2>
+      <p class="mu" style="margin-bottom:10px">Tulis singkat apa yang ingin kamu sampaikan. Hanya guru BK yang membacanya.</p>
+      <label>Nama panggilan (boleh samaran)</label><input id="adNick" maxlength="24" placeholder="mis. Bintang">
+      <label>Topik</label><select id="adTopic"><option>Belajar</option><option>Pertemanan</option><option>Perasaan/emosi</option><option>Keluarga</option><option>Bullying</option><option>Karier/jurusan</option><option>Lainnya</option></select>
+      <label>Deskripsi / cerita</label><textarea id="adDesc" rows="6" maxlength="1000" placeholder="Apa yang terjadi? Sejak kapan? Apa yang kamu rasakan?"></textarea>
+      <div class="warn hide" id="adMsg"></div><button class="btn" id="adBtn">Lanjut</button></div>
+  </section>
+
+  <section id="pilih" class="hide">
+    <button class="btn s" data-go="aduan">← Ubah cerita</button>
+    <div class="card" style="margin-top:12px"><h2>Terima kasih sudah bercerita</h2><p class="mu" id="pSum"></p></div>
+    <p class="mu">Mau lanjut dengan cara apa?</p>
+    <div class="grid g2">
+      <button class="opt main" id="goChat"><div class="e">💬</div><h2>Chat langsung</h2><p class="mu">Terhubung ke guru BK dengan token pribadi.</p></button>
+      <button class="opt" data-go="book"><div class="e">📅</div><h2>Buat janji</h2><p class="mu">Pilih hari dan jam konseling.</p></button>
+    </div>
+  </section>
+
+  <section id="book" class="hide">
+    <button class="btn s" data-go="pilih">← Kembali</button>
+    <div class="card" style="margin-top:12px"><h2>Buat janji konseling</h2>
+      <div class="warn" id="bkSum"></div>
+      <div class="row2"><div><label>Tanggal</label><input id="bkDate" type="date"></div><div><label>Jam</label><select id="bkTime"></select></div></div>
+      <label>Cara bertemu</label><select id="bkMode"><option>Tatap muka di ruang BK</option><option>Online lewat chat</option></select>
+      <div class="warn hide" id="bkMsg"></div><button class="btn" id="bkBtn">Kirim permintaan janji</button>
+      <p class="mu" style="font-size:.85rem">Konseling Senin–Jumat. Janji dikonfirmasi guru BK.</p></div>
+  </section>
+
+  <section id="my" class="hide">
+    <button class="btn s" data-go="home">← Kembali</button>
+    <div class="card" style="margin-top:12px"><h2>Chat-ku</h2><div id="myCases" class="mu">Memuat…</div></div>
+    <div class="card"><h2>Janji-ku</h2><div id="myBks" class="mu">Memuat…</div></div>
+  </section>
+
+  <section id="info" class="hide">
+    <button class="btn s" data-go="home">← Kembali</button>
+    <div class="card" style="margin-top:12px"><h2>Tentang privasi dan token</h2>
+      <p>Guru BK hanya melihat nama panggilan, topik, dan ceritamu. Identitas aslimu baru bisa dibuka kalau kamu mengizinkan, atau dalam keadaan darurat. Setiap pembukaan identitas tercatat.</p>
+      <p>Kerahasiaan bisa dilepas jika ada risiko serius bagi keselamatanmu atau orang lain, dan kamu akan diberi tahu lebih dulu. Jangan bagikan token atau passwordmu ke siapa pun.</p></div>
+  </section>
+
+  <section id="chat" class="hide">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px"><button class="btn s" id="leave">← Keluar</button><span class="mu" id="who"></span></div>
+    <div class="token" id="tk"></div>
+    <div class="row" style="margin-bottom:8px"><button class="btn s" id="idBtn"></button></div>
+    <div class="chat"><div class="msgs" id="msgs"></div>
+      <div class="send"><input id="txt" placeholder="Tulis pesan…" maxlength="1000"><button class="btn" id="sendBtn">Kirim</button></div></div>
+  </section>
+
+  <section id="guru" class="hide">
+    <div class="card"><h2>Kotak masuk guru BK</h2><div id="inbox" class="mu">Memuat…</div></div>
+    <div class="card"><h2>Janji konseling</h2><div id="bkList" class="mu">Memuat…</div></div>
+  </section>
+</div>
+
+<button class="sos" id="sos">🆘 Butuh bantuan sekarang</button>
+<div class="card hide" id="sosBox" style="position:fixed;left:12px;right:12px;bottom:70px;max-width:420px;margin-left:auto;z-index:6">
+  <h2>Kamu tidak sendirian</h2><p>Jika kamu ingin menyakiti diri sendiri atau dalam bahaya, segera hubungi guru BK atau orang dewasa yang kamu percaya. Layanan Sejiwa: <b>119 ext. 8</b>.</p>
+  <button class="btn s" id="sosX">Tutup</button></div>
+
+<script>
+const CFG={url:'https://abwsluewjevswsxruzyd.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFid3NsdWV3amV2c3dzeHJ1enlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4OTcwNzAsImV4cCI6MjExMDQ3MzA3MH0.iPr7Yr3ZDPSLe732Aip-3uCtgNr5MXgGhvcITzCoYu8',domain:'ruangcerita.sekolah.id'};
+const $=id=>document.getElementById(id);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const fmt=t=>new Date(t).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'});
+const msg=(id,t)=>{$(id).textContent=t||'';$(id).classList.toggle('hide',!t)};
+const CASE='id,token,nick,topic,description,status,identity_revealed,created_at,last_at';
+const BK='id,nick,topic,note,slot_date,slot_time,mode,status';
+const SLOTS=['07:30','08:30','09:30','10:30','12:30','13:30'];
+const V=['login','pw','home','aduan','pilih','book','my','info','chat','guru'];
+let sb=null,me=null,prof=null,aduan={nick:'Anonim',topic:'',desc:''},cur=null,chan=null,pan=null,seen=new Set();
+
+function show(v){V.forEach(x=>$(x).classList.toggle('hide',x!==v));$('bar').classList.toggle('hide',v==='login'||v==='pw');
+  if(v!=='chat'&&chan){sb.removeChannel(chan);chan=null}if(v!=='guru'&&pan){sb.removeChannel(pan);pan=null}scrollTo(0,0)}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(!g)return;const v=g.dataset.go;show(v);if(v==='book')initBook();if(v==='my')loadMy()});
+$('sos').onclick=()=>$('sosBox').classList.remove('hide');$('sosX').onclick=()=>$('sosBox').classList.add('hide');
+
+/* ---------- login ---------- */
+$('loginBtn').onclick=async()=>{const u=$('lu').value.trim();if(!u||!$('lp').value)return;
+  const {error}=await sb.auth.signInWithPassword({email:u.includes('@')?u:u+'@'+CFG.domain,password:$('lp').value});
+  if(error){msg('lmsg','NIS/email atau password salah.');return}msg('lmsg','');$('lp').value='';boot()};
+$('pwBtn').onclick=async()=>{const p=$('np').value;if(p.length<8){msg('pmsg','Minimal 8 karakter.');return}
+  const {error}=await sb.auth.updateUser({password:p,data:{must_change:false}});if(error){msg('pmsg','Gagal menyimpan. Coba lagi.');return}$('np').value='';boot()};
+$('out').onclick=async()=>{await sb.auth.signOut();me=prof=null;show('login')};
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();if(!session){show('login');return}
+  me=session.user;const {data:p}=await sb.from('profiles').select('nis,nama,kelas,role').eq('id',me.id).single();
+  if(!p){await sb.auth.signOut();show('login');msg('lmsg','Akun belum terdaftar. Hubungi sekolah.');return}
+  prof=p;$('hi').textContent=p.role==='guru'?p.nama:'';
+  if(me.user_metadata&&me.user_metadata.must_change){show('pw');return}
+  p.role==='guru'?loadPanel():show('home')}
+
+/* ---------- cerita -> pilihan ---------- */
+$('adBtn').onclick=()=>{const d=$('adDesc').value.trim();if(d.length<10){msg('adMsg','Ceritakan sedikit lebih detail ya (minimal 10 karakter).');return}
+  msg('adMsg','');aduan={nick:$('adNick').value.trim()||'Anonim',topic:$('adTopic').value,desc:d};
+  $('pSum').textContent='Topik: '+aduan.topic+' · “'+(d.length>120?d.slice(0,120)+'…':d)+'”';show('pilih')};
+$('goChat').onclick=async()=>{$('goChat').disabled=true;
+  const {data:c,error}=await sb.from('cases').insert({nick:aduan.nick,topic:aduan.topic,description:aduan.desc}).select(CASE).single();
+  if(error){alert('Gagal membuat chat. Coba lagi.');$('goChat').disabled=false;return}
+  await sb.from('messages').insert({case_id:c.id,sender:'siswa',body:'['+c.topic+'] '+c.description});
+  $('goChat').disabled=false;openChat(c,'siswa')};
+
+/* ---------- chat ---------- */
+function add(m){if(seen.has(m.id))return;seen.add(m.id);const b=$('msgs'),d=el('div','m'+(m.sender===cur.role?' me':''),m.body);
+  d.appendChild(el('small',null,(m.sender==='guru'?'Guru BK · ':'')+new Date(m.created_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})));b.appendChild(d);b.scrollTop=b.scrollHeight}
+const idLabel=c=>cur.role==='guru'?'Buka identitas':(c.identity_revealed?'Cabut izin identitas':'Izinkan guru tahu identitasku');
+async function openChat(c,role){cur={c,role};seen=new Set();show('chat');$('msgs').innerHTML='';
+  $('tk').textContent=c.token;$('who').textContent=role==='guru'?c.nick+' · '+c.topic:'Sebagai '+c.nick;$('idBtn').textContent=idLabel(c);
+  const {data}=await sb.from('messages').select('id,sender,body,created_at').eq('case_id',c.id).order('created_at');(data||[]).forEach(add);
+  chan=sb.channel('m'+c.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'case_id=eq.'+c.id},p=>add(p.new)).subscribe()}
+async function send(){const v=$('txt').value.trim();if(!v||!cur)return;$('txt').value='';
+  const {error}=await sb.from('messages').insert({case_id:cur.c.id,sender:cur.role,body:v});if(error)alert('Pesan gagal terkirim.')}
+$('sendBtn').onclick=send;$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+$('leave').onclick=()=>cur.role==='guru'?loadPanel():(show('my'),loadMy());
+$('idBtn').onclick=async()=>{const {c,role}=cur;
+  if(role==='siswa'){const v=!c.identity_revealed;const {error}=await sb.from('cases').update({identity_revealed:v}).eq('id',c.id);
+    if(!error){c.identity_revealed=v;$('idBtn').textContent=idLabel(c)}return}
+  let r=null;if(!c.identity_revealed){r=prompt('Siswa belum mengizinkan. Tulis alasan darurat (min. 15 karakter). Akses ini dicatat.');if(!r)return}
+  const {data,error}=await sb.rpc('reveal_identity',{p_case:c.id,p_reason:r});if(error){alert(error.message);return}
+  const x=data[0];alert('NIS: '+x.nis+'\nNama: '+x.nama+'\nKelas: '+x.kelas)};
+
+/* ---------- janji ---------- */
+function initBook(){const t=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  $('bkDate').min=t;if(!$('bkDate').value)$('bkDate').value=t;msg('bkMsg','');$('bkSum').textContent='Topik: '+aduan.topic+' · Ceritamu dikirim bersama permintaan janji.';loadSlots()}
+async function loadSlots(){const d=$('bkDate').value,s=$('bkTime');s.innerHTML='';if(!d)return;
+  const day=new Date(d+'T00:00').getDay();if(day===0||day===6){msg('bkMsg','Konseling hanya Senin–Jumat. Pilih hari lain.');return}msg('bkMsg','');
+  const {data}=await sb.rpc('taken_slots',{d});const tk=new Set((data||[]).map(x=>x.slot_time.slice(0,5)));
+  SLOTS.forEach(t=>{const o=el('option',null,t+(tk.has(t)?' (penuh)':''));o.value=t;o.disabled=tk.has(t);s.appendChild(o)});
+  const f=[...s.options].find(o=>!o.disabled);if(f)s.value=f.value}
+$('bkDate').onchange=loadSlots;
+$('bkBtn').onclick=async()=>{const d=$('bkDate').value,t=$('bkTime').value;if(!d||!t){msg('bkMsg','Pilih tanggal dan jam yang tersedia.');return}
+  $('bkBtn').disabled=true;
+  const {error}=await sb.from('bookings').insert({nick:aduan.nick,topic:aduan.topic,note:aduan.desc,slot_date:d,slot_time:t,mode:$('bkMode').value});
+  $('bkBtn').disabled=false;
+  if(error){msg('bkMsg',error.code==='23505'?'Jam itu baru saja diambil. Pilih jam lain.':'Gagal membuat janji. Coba lagi.');loadSlots();return}
+  show('my');loadMy()};
+
+async function loadMy(){
+  const {data:cs}=await sb.from('cases').select(CASE).order('last_at',{ascending:false});const A=$('myCases');A.innerHTML='';
+  if(!cs||!cs.length)A.textContent='Belum ada chat.';
+  (cs||[]).forEach(c=>{const r=el('div','item'),l=el('div');l.append(el('b',null,c.topic+' · '+c.nick),el('div','mu',c.token+' · '+fmt(c.last_at)));
+    const b=el('button','btn','Buka');b.onclick=()=>openChat(c,'siswa');r.append(l,b);A.appendChild(r)});
+  const {data:bs}=await sb.from('bookings').select(BK).neq('status','dibatalkan').order('slot_date');const B=$('myBks');B.innerHTML='';
+  if(!bs||!bs.length)B.textContent='Belum ada janji.';
+  (bs||[]).forEach(x=>{const r=el('div','item'),l=el('div');l.append(el('b',null,x.slot_date+' pukul '+x.slot_time.slice(0,5)),el('div','mu',x.mode+' · '+x.status));r.appendChild(l);
+    if(x.status==='menunggu'||x.status==='disetujui'){const b=el('button','btn s','Batalkan');b.onclick=async()=>{await sb.from('bookings').update({status:'dibatalkan'}).eq('id',x.id);loadMy()};r.appendChild(b)}B.appendChild(r)})}
+
+/* ---------- panel guru ---------- */
+async function loadPanel(){show('guru');
+  pan=sb.channel('pan').on('postgres_changes',{event:'*',schema:'public',table:'cases'},drawPanel).on('postgres_changes',{event:'*',schema:'public',table:'bookings'},drawPanel).subscribe();drawPanel()}
+async function drawPanel(){
+  const {data:cs}=await sb.from('cases').select(CASE).order('last_at',{ascending:false});const L=$('inbox');L.innerHTML='';
+  if(!cs||!cs.length)L.textContent='Belum ada cerita masuk.';
+  (cs||[]).forEach(c=>{const r=el('div','item'),l=el('div');l.append(el('b',null,c.nick+' · '+c.topic+' ['+c.status+']'),el('div','mu',c.token+' · '+fmt(c.last_at)));
+    const b=el('button','btn','Buka');b.onclick=()=>openChat(c,'guru');r.append(l,b);L.appendChild(r)});
+  const {data:bs}=await sb.from('bookings').select(BK).order('slot_date');const B=$('bkList');B.innerHTML='';
+  if(!bs||!bs.length)B.textContent='Belum ada janji.';
+  (bs||[]).forEach(x=>{const r=el('div','item'),l=el('div'),g=el('div','row');
+    l.append(el('b',null,x.nick+' · '+x.topic),el('div','mu',x.slot_date+' '+x.slot_time.slice(0,5)+' · '+x.mode+' · '+x.status+(x.note?' · “'+x.note+'”':'')));
+    const mk=(t,st,c)=>{const k=el('button','btn '+(c||''),t);k.onclick=()=>sb.from('bookings').update({status:st}).eq('id',x.id).then(drawPanel);g.appendChild(k)};
+    if(x.status==='menunggu'){mk('Setujui','disetujui');mk('Tolak','ditolak','s')}else if(x.status==='disetujui')mk('Selesai','selesai','s');
+    r.append(l,g);B.appendChild(r)})}
+
+/* ---------- mulai ---------- */
+if(CFG.url.startsWith('ISI_')){$('cfgWarn').classList.remove('hide')}
+else{sb=supabase.createClient(CFG.url,CFG.key);boot()}
+</script>
+</body>
+</html>
