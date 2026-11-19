@@ -116,7 +116,9 @@ label{font-weight:600;font-size:.92rem}
 
   <section id="guru" class="hide">
     <div class="card"><h2>Kotak masuk guru BK</h2><div id="inbox" class="mu">Memuat…</div></div>
-    <div class="card"><h2>Janji konseling</h2><div id="bkList" class="mu">Memuat…</div></div>
+    <div class="grid g3" id="stats"></div>
+    <div class="card" id="nextBk"></div>
+    <div class="card"><h2>Janji konseling</h2><div class="row" id="tabs" style="margin:8px 0"></div><div id="bkList" class="mu">Memuat…</div></div>
   </section>
 </div>
 
@@ -220,13 +222,46 @@ async function drawPanel(){
   if(!cs||!cs.length)L.textContent='Belum ada cerita masuk.';
   (cs||[]).forEach(c=>{const r=el('div','item'),l=el('div');l.append(el('b',null,c.nick+' · '+c.topic+' ['+c.status+']'),el('div','mu',c.token+' · '+fmt(c.last_at)));
     const b=el('button','btn','Buka');b.onclick=()=>openChat(c,'guru');r.append(l,b);L.appendChild(r)});
-  const {data:bs}=await sb.from('bookings').select(BK).order('slot_date');const B=$('bkList');B.innerHTML='';
-  if(!bs||!bs.length)B.textContent='Belum ada janji.';
-  (bs||[]).forEach(x=>{const r=el('div','item'),l=el('div'),g=el('div','row');
-    l.append(el('b',null,x.nick+' · '+x.topic),el('div','mu',x.slot_date+' '+x.slot_time.slice(0,5)+' · '+x.mode+' · '+x.status+(x.note?' · “'+x.note+'”':'')));
+  const {data:bs}=await sb.from('bookings').select(BK).order('slot_date');
+  const {data:ns}=await sb.from('session_notes').select('booking_id,note');notes={};(ns||[]).forEach(z=>notes[z.booking_id]=z);
+  bkAll=bs||[];const ae=document.activeElement;if(!(ae&&ae.tagName==='TEXTAREA'&&$('bkList').contains(ae)))renderBk()}
+
+/* ---------- dashboard janji guru ---------- */
+let bkAll=[],tab='menunggu';
+let notes={},openNote=new Set();
+const TABS=[['menunggu','Menunggu'],['disetujui','Mendatang'],['selesai','Sudah ditangani'],['semua','Semua']];
+const stamp=x=>x.slot_date+'T'+x.slot_time.slice(0,5);
+const tgl=x=>new Date(x.slot_date+'T00:00').toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})+' pukul '+x.slot_time.slice(0,5);
+function renderBk(){
+  const n=st=>bkAll.filter(x=>x.status===st).length;
+  const nowS=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+  const S=$('stats');S.innerHTML='';
+  [['Menunggu konfirmasi',n('menunggu')],['Janji mendatang',n('disetujui')],['Sudah ditangani',n('selesai')]].forEach(([t,v])=>{const c=el('div','card');c.style.margin='0';c.append(el('div','mu',t),el('h1',null,String(v)));S.appendChild(c)});
+  const up=bkAll.filter(x=>x.status==='disetujui'&&stamp(x)>=nowS).sort((a,b)=>stamp(a)<stamp(b)?-1:1)[0];
+  const N=$('nextBk');N.innerHTML='';N.appendChild(el('h2',null,'Janji temu berikutnya'));
+  if(up){N.append(el('p',null,tgl(up)),el('p','mu',up.nick+' · '+up.topic+' · '+up.mode))}else N.appendChild(el('p','mu','Belum ada janji yang disetujui.'));
+  const T=$('tabs');T.innerHTML='';
+  TABS.forEach(([k,t])=>{const b=el('button','btn'+(tab===k?'':' s'),t+(k==='semua'?'':' ('+n(k)+')'));b.onclick=()=>{tab=k;renderBk()};T.appendChild(b)});
+  const B=$('bkList');B.innerHTML='';
+  const list=(tab==='semua'?bkAll.slice():bkAll.filter(x=>x.status===tab)).sort((a,b)=>(tab==='selesai'||tab==='semua')?(stamp(a)<stamp(b)?1:-1):(stamp(a)<stamp(b)?-1:1));
+  if(!list.length){B.textContent='Tidak ada janji di kategori ini.';return}
+  list.forEach(x=>{const r=el('div','item'),l=el('div'),g=el('div','row');
+    const lewat=x.status==='disetujui'&&stamp(x)<nowS;
+    l.append(el('b',null,x.nick+' · '+x.topic),el('div','mu',tgl(x)+' · '+x.mode+' · '+x.status+(lewat?' · sudah lewat, tandai selesai?':'')),...(x.note?[el('div','mu','“'+x.note+'”')]:[]));
     const mk=(t,st,c)=>{const k=el('button','btn '+(c||''),t);k.onclick=()=>sb.from('bookings').update({status:st}).eq('id',x.id).then(drawPanel);g.appendChild(k)};
     if(x.status==='menunggu'){mk('Setujui','disetujui');mk('Tolak','ditolak','s')}else if(x.status==='disetujui')mk('Selesai','selesai','s');
-    r.append(l,g);B.appendChild(r)})}
+    if(x.status==='disetujui'||x.status==='selesai'){
+      const has=notes[x.id],nb=el('button','btn s',has?'📝 Lihat catatan':'Tulis catatan');
+      nb.onclick=()=>{openNote.has(x.id)?openNote.delete(x.id):openNote.add(x.id);renderBk()};g.appendChild(nb)}
+    r.append(l,g);
+    if(openNote.has(x.id)){
+      const box=el('div'),ta=el('textarea'),sv=el('button','btn','Simpan catatan'),st=el('span','mu','');
+      box.style.flexBasis='100%';r.style.flexWrap='wrap';ta.rows=4;ta.maxLength=3000;ta.value=notes[x.id]?notes[x.id].note:'';
+      ta.placeholder='Catatan sesi. Hanya terlihat guru BK.';
+      sv.onclick=async()=>{sv.disabled=true;const {error}=await sb.from('session_notes').upsert({booking_id:x.id,note:ta.value,updated_at:new Date().toISOString()});
+        sv.disabled=false;if(error){st.textContent=' Gagal menyimpan. Pastikan tabel session_notes sudah dibuat.';return}notes[x.id]={booking_id:x.id,note:ta.value};st.textContent=' Tersimpan.'};
+      box.append(ta,sv,st);r.appendChild(box)}
+    B.appendChild(r)})}
 
 /* ---------- mulai ---------- */
 if(CFG.url.startsWith('ISI_')){$('cfgWarn').classList.remove('hide')}
