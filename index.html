@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ruang Cerita – Konseling BK</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{--bg:#f4f8f6;--card:#fff;--tx:#1f2d2a;--mu:#5d706b;--pr:#3f8f7b;--pr2:#e1f1ec;--wa:#fff1e6;--wt:#b4581c;--bd:#d9e6e1;--me:#3f8f7b;--ot:#eaf0ee}
 @media (prefers-color-scheme:dark){:root{--bg:#14201d;--card:#1c2b27;--tx:#e6f0ed;--mu:#9bb1ab;--pr:#5fc0a8;--pr2:#233933;--wa:#3a2a1d;--wt:#f0a56b;--bd:#2c403a;--me:#2f7f6b;--ot:#26382f;color-scheme:dark}}
@@ -118,7 +120,8 @@ label{font-weight:600;font-size:.92rem}
     <div class="card"><h2>Kotak masuk guru BK</h2><div id="inbox" class="mu">Memuat…</div></div>
     <div class="grid g3" id="stats"></div>
     <div class="card" id="nextBk"></div>
-    <div class="card"><h2>Janji konseling</h2><div class="row" id="tabs" style="margin:8px 0"></div><div id="bkList" class="mu">Memuat…</div></div>
+    <div class="card"><h2>Janji konseling</h2><div class="row" id="tabs" style="margin:8px 0"></div>
+    <div class="row" style="margin:8px 0 12px"><button class="btn s" id="pdfBtn">⬇️ Unduh PDF</button><label style="font-weight:400"><input type="checkbox" id="inclNote" style="width:auto;margin:0 6px 0 0">sertakan catatan sesi</label></div><div id="bkList" class="mu">Memuat…</div></div>
   </section>
 </div>
 
@@ -229,6 +232,7 @@ async function drawPanel(){
 /* ---------- dashboard janji guru ---------- */
 let bkAll=[],tab='menunggu';
 let notes={},openNote=new Set();
+let curList=[];
 const TABS=[['menunggu','Menunggu'],['disetujui','Mendatang'],['selesai','Sudah ditangani'],['semua','Semua']];
 const stamp=x=>x.slot_date+'T'+x.slot_time.slice(0,5);
 const tgl=x=>new Date(x.slot_date+'T00:00').toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})+' pukul '+x.slot_time.slice(0,5);
@@ -244,7 +248,7 @@ function renderBk(){
   TABS.forEach(([k,t])=>{const b=el('button','btn'+(tab===k?'':' s'),t+(k==='semua'?'':' ('+n(k)+')'));b.onclick=()=>{tab=k;renderBk()};T.appendChild(b)});
   const B=$('bkList');B.innerHTML='';
   const list=(tab==='semua'?bkAll.slice():bkAll.filter(x=>x.status===tab)).sort((a,b)=>(tab==='selesai'||tab==='semua')?(stamp(a)<stamp(b)?1:-1):(stamp(a)<stamp(b)?-1:1));
-  if(!list.length){B.textContent='Tidak ada janji di kategori ini.';return}
+  curList=list;if(!list.length){B.textContent='Tidak ada janji di kategori ini.';return}
   list.forEach(x=>{const r=el('div','item'),l=el('div'),g=el('div','row');
     const lewat=x.status==='disetujui'&&stamp(x)<nowS;
     l.append(el('b',null,x.nick+' · '+x.topic),el('div','mu',tgl(x)+' · '+x.mode+' · '+x.status+(lewat?' · sudah lewat, tandai selesai?':'')),...(x.note?[el('div','mu','“'+x.note+'”')]:[]));
@@ -262,6 +266,30 @@ function renderBk(){
         sv.disabled=false;if(error){st.textContent=' Gagal menyimpan. Pastikan tabel session_notes sudah dibuat.';return}notes[x.id]={booking_id:x.id,note:ta.value};st.textContent=' Tersimpan.'};
       box.append(ta,sv,st);r.appendChild(box)}
     B.appendChild(r)})}
+
+/* ---------- unduh PDF ---------- */
+function unduhPdf(){
+  if(!window.jspdf||!window.jspdf.jsPDF){alert('Pustaka PDF belum termuat. Periksa koneksi internet, lalu muat ulang halaman.');return}
+  const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'}),withNote=$('inclNote').checked;
+  const n=st=>bkAll.filter(x=>x.status===st).length,dmy=d=>d.split('-').reverse().join('-');
+  const nowS=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+  const up=bkAll.filter(x=>x.status==='disetujui'&&stamp(x)>=nowS).sort((a,b)=>stamp(a)<stamp(b)?-1:1)[0];
+  const label=(TABS.find(t=>t[0]===tab)||[0,'Semua'])[1];
+  doc.setFontSize(16);doc.text('Laporan Janji Konseling BK',40,48);
+  doc.setFontSize(10);doc.setTextColor(100);
+  doc.text('Dicetak: '+new Date().toLocaleString('id-ID')+(prof?' oleh '+prof.nama:''),40,66);
+  doc.text('Kategori: '+label+' ('+curList.length+' janji)',40,80);
+  doc.setTextColor(0);doc.setFontSize(11);
+  doc.text('Menunggu: '+n('menunggu')+'    Mendatang: '+n('disetujui')+'    Selesai: '+n('selesai')+'    Total: '+bkAll.length,40,104);
+  doc.text('Janji berikutnya: '+(up?dmy(up.slot_date)+' pukul '+up.slot_time.slice(0,5)+', '+up.nick+' ('+up.topic+')':'belum ada'),40,122);
+  const head=[['Tanggal','Jam','Nama panggilan','Topik','Cara','Status']];if(withNote)head[0].push('Catatan sesi');
+  const body=curList.map(x=>{const r=[dmy(x.slot_date),x.slot_time.slice(0,5),x.nick,x.topic,x.mode,x.status];if(withNote)r.push((notes[x.id]&&notes[x.id].note)||'-');return r});
+  doc.autoTable({head,body,startY:140,styles:{fontSize:9,cellPadding:4,overflow:'linebreak'},headStyles:{fillColor:[63,143,123]},margin:{left:40,right:40,bottom:40}});
+  const pg=doc.internal.getNumberOfPages(),h=doc.internal.pageSize.getHeight();
+  for(let i=1;i<=pg;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(120);
+    doc.text('Dokumen rahasia, hanya untuk guru BK. Halaman '+i+' dari '+pg,40,h-20)}
+  doc.save('laporan-janji-bk-'+nowS.slice(0,10)+'.pdf')}
+$('pdfBtn').onclick=unduhPdf;
 
 /* ---------- mulai ---------- */
 if(CFG.url.startsWith('ISI_')){$('cfgWarn').classList.remove('hide')}
